@@ -125,41 +125,61 @@ Returns:
 
 ## 💻 CLI Quickstart & Usage
 
-### 1. Guided Interactive Mode
+### 1. Kt/V Sentinel CLI (root `cli.py`)
 ```bash
-python cli.py
+# Single-pool Kt/V
+python cli.py spktv --pre-bun 60 --post-bun 15 --time 4 --uf-l 2.5 --weight 75
+
+# Urea Reduction Ratio
+python cli.py urr --pre-bun 60 --post-bun 15
+
+# Equilibrated Kt/V
+python cli.py ektv --spktv 1.4 --time 4
+
+# Standard Kt/V
+python cli.py stdktv --spktv 1.4 --sessions 3 --time 4
+
+# Normalized Protein Catabolic Rate
+python cli.py npcr --pre-bun 60 --post-bun 15 --time 4 --uf-l 2.5 --weight 75
+
+# Full adequacy assessment
+python cli.py full --pre-bun 60 --post-bun 15 --time 4 --uf-l 2.5 --weight 75 --sessions 3
 ```
 
-### 2. Direct Parameterized Evaluation
+### 2. Dialysis Coordinators CLI (`dialysis_adequacy_ktv_agent/cli.py`)
 ```bash
-python cli.py --input data.csv
+# Clinical audit
+python dialysis_adequacy_ktv_agent_app.py audit --case-id CASE-001 --primary 26.2 --status DISCORDANT
+
+# Batch processing from CSV
+python dialysis_adequacy_ktv_agent_app.py batch -i sample.csv -o results.csv
+
+# System chat
+python dialysis_adequacy_ktv_agent_app.py chat "status summary"
+
+# Launch FastAPI server
+python dialysis_adequacy_ktv_agent_app.py serve --host 127.0.0.1 --port 8000
 ```
-
-### Parameter Reference
-- `--interactive`: Launch guided terminal interactive wizard.
-- `--input <path>`: Evaluate input from JSON or CSV specification.
-- `--json`: Output deterministic structured results in JSON format.
-
-### Input Data Schema
-
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `case_id` | Parameter / observation metric | Required |
-| `patient_synthetic_id` | Parameter / observation metric | Required |
-| `metric_primary` | Parameter / observation metric | Required |
-| `metric_secondary` | Parameter / observation metric | Required |
-| `is_stat` | Parameter / observation metric | Required |
-| `status_flag` | Parameter / observation metric | Required |
 
 ---
 
 ## 🛡️ Security & Enterprise Architecture
 
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
+* **Zero-PHI Outbound Interceptor:** Active regex inspection blocking SSNs, MRNs, phone numbers, emails, DOB, and patient names.
 * **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
 * **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
 * **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
 * **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+
+### Security Configuration
+
+Set the `AUDIT_SECRET_KEY` environment variable in production to ensure audit trail integrity across restarts:
+
+```bash
+export AUDIT_SECRET_KEY="your-secure-random-key"
+```
+
+Without this variable, an ephemeral key is generated at runtime (with a warning), making cross-restart verification impossible.
 
 ---
 
