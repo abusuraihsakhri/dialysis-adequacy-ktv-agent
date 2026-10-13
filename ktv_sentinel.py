@@ -168,14 +168,16 @@ def calc_nPCR(pre_bun: float, post_bun: float, dialysis_time_hr: float,
 def full_adequacy_assessment(pre_bun: float, post_bun: float,
                               dialysis_time_hr: float, uf_volume_l: float,
                               post_weight_kg: float,
-                              sessions_per_week: float = 3.0) -> Dict[str, Any]:
+                              sessions_per_week: float = 3.0,
+                              session_position: str = "midweek") -> Dict[str, Any]:
     """Return component estimates. nPCR is omitted outside thrice-weekly HD."""
     sp = calc_spktv(pre_bun, post_bun, dialysis_time_hr, uf_volume_l, post_weight_kg)
     urr = calc_urr(pre_bun, post_bun)
     ek = calc_ektv(sp["spktv"], dialysis_time_hr)
     std = calc_stdktv(sp["spktv"], sessions_per_week, dialysis_time_hr)
     npcr = (calc_nPCR(pre_bun, post_bun, dialysis_time_hr, uf_volume_l,
-                     post_weight_kg) if sessions_per_week == 3 else None)
+                     post_weight_kg, session_position=session_position)
+            if sessions_per_week == 3 else None)
     return {
         "spktv": sp, "urr": urr, "ektv": ek, "stdktv": std,
         "npcr": npcr,
@@ -228,6 +230,7 @@ def main(argv=None):
     p_npcr.add_argument("--time", type=float, required=True, help="Dialysis time (hours)")
     p_npcr.add_argument("--uf-l", type=float, required=True, help="UF volume (liters)")
     p_npcr.add_argument("--weight", type=float, required=True, help="Post-dialysis weight (kg)")
+    p_npcr.add_argument("--position", choices=["beginning", "midweek", "end"], default="midweek")
 
     # Full assessment
     p_full = sub.add_parser("full", help="Full adequacy assessment")
@@ -237,6 +240,7 @@ def main(argv=None):
     p_full.add_argument("--uf-l", type=float, required=True, help="UF volume (liters)")
     p_full.add_argument("--weight", type=float, required=True, help="Post-dialysis weight (kg)")
     p_full.add_argument("--sessions", type=float, default=3.0, help="Sessions per week")
+    p_full.add_argument("--position", choices=["beginning", "midweek", "end"], default="midweek")
 
     args = parser.parse_args(argv)
 
@@ -249,10 +253,11 @@ def main(argv=None):
     elif args.command == "stdktv":
         result = calc_stdktv(args.spktv, args.sessions, args.time)
     elif args.command == "npcr":
-        result = calc_nPCR(args.pre_bun, args.post_bun, args.time, args.uf_l, args.weight)
+        result = calc_nPCR(args.pre_bun, args.post_bun, args.time, args.uf_l, args.weight,
+                           session_position=args.position)
     elif args.command == "full":
         result = full_adequacy_assessment(args.pre_bun, args.post_bun, args.time,
-                                           args.uf_l, args.weight, args.sessions)
+                                           args.uf_l, args.weight, args.sessions, args.position)
     else:
         parser.print_help()
         return 1
