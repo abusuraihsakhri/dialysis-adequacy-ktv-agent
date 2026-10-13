@@ -1,7 +1,7 @@
 """
 Specialized Domain Worker Agents for Dialysis Adequacy Ktv Agent.
 Domain: Nephrology & Dialysis Systems
-Standard: KDIGO / KDOQI Clinical Practice Guidelines
+Standard: demonstration-only thresholds (not clinical guidelines)
 """
 import uuid
 from typing import Dict, Any, List, Optional
@@ -20,7 +20,7 @@ class InvariantQCWorker:
                 origin_worker="InvariantQCWorker",
                 urgency=UrgencyLevel.ELEVATED,
                 summary="Primary Metric Threshold Exceeded",
-                technical_details=f"Primary measurement ({payload.primary_metric:.2f}) exceeds upper reference limit (25.00) under KDIGO / KDOQI Clinical Practice Guidelines.",
+                technical_details=f"Primary measurement ({payload.primary_metric:.2f}) exceeds upper reference limit (25.00) under demonstration-only thresholds (not clinical guidelines).",
                 actionable_remediation="Initiate recalibration workflow and review secondary parameters.",
             ))
         return alerts
@@ -39,7 +39,7 @@ class SafetyEscalationWorker:
                 urgency=UrgencyLevel.CRITICAL_STAT if payload.is_critical_flag else UrgencyLevel.ELEVATED,
                 summary="Critical Safety Interlock Triggered",
                 technical_details=f"CriticalFlag={payload.is_critical_flag} with secondary index {payload.secondary_metric:.2f}.",
-                actionable_remediation="Execute immediate closed-loop escalation and notify attending supervisor.",
+                actionable_remediation="Flag requires manual review; no clinical escalation is performed.",
             ))
         return alerts
 
@@ -57,7 +57,7 @@ class ProtocolConformanceWorker:
                 origin_worker="ProtocolConformanceWorker",
                 urgency=UrgencyLevel.ELEVATED,
                 summary="Protocol Conformance Discordance Detected",
-                technical_details=f"Descriptor '{payload.status_descriptor}' indicates discordance with KDIGO / KDOQI Clinical Practice Guidelines standards.",
-                actionable_remediation="Re-evaluate input specimen or rerun secondary confirmation assay.",
+                technical_details=f"Descriptor '{payload.status_descriptor}' indicates discordance with demonstration-only thresholds (not clinical guidelines) standards.",
+                actionable_remediation="Review the status descriptor; this is a demonstration classification.",
             ))
         return alerts
