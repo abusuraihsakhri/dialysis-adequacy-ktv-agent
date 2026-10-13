@@ -1,7 +1,7 @@
 """
 Clinical Data Models & Enums for KtV-Sentinel: Hemodialysis Single-Pool & Equilibrated Kt/V Adequacy Agent.
 Domain: Nephrology
-Standard: KDOQI Hemodialysis Adequacy & KDIGO CKD 2024
+Standard: nonclinical demonstration rules
 """
 import datetime
 from dataclasses import dataclass, field
@@ -43,7 +43,7 @@ class AgentAlert:
     title: str
     clinical_finding: str
     actionable_recommendation: str
-    guideline_citation: str = "KDOQI Hemodialysis Adequacy & KDIGO CKD 2024"
+    guideline_citation: str = "nonclinical demonstration rules"
     timestamp: str = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
 
     def to_dict(self) -> Dict[str, Any]:

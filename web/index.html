@@ -1,236 +1,88 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dialysis Adequacy Ktv Engine — Operations Console</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #090d16;
-            --card: #111827;
-            --border: #1f293d;
-            --accent: #3b82f6;
-            --accent-glow: rgba(59, 130, 246, 0.25);
-            --text: #f3f4f6;
-            --text-muted: #9ca3af;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --success: #10b981;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            padding: 2rem;
-            min-height: 100vh;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        .header-title h1 { font-size: 1.6rem; font-weight: 700; color: #fff; }
-        .header-title p { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem; }
-        .badge {
-            display: inline-block;
-            padding: 0.3rem 0.8rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            background: var(--accent-glow);
-            color: var(--accent);
-            border: 1px solid var(--accent);
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 1.5rem;
-        }
-        .card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-        }
-        .card h2 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; }
-        input, select, textarea {
-            width: 100%;
-            padding: 0.65rem 0.9rem;
-            background: #0d1322;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: #fff;
-            font-family: inherit;
-            font-size: 0.9rem;
-        }
-        input:focus, textarea:focus { outline: none; border-color: var(--accent); }
-        .btn {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            padding: 0.7rem 1.4rem;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-            width: 100%;
-        }
-        .btn:hover { background: #2563eb; }
-        .terminal {
-            background: #060911;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: #10b981;
-            height: 380px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-        .metrics-bar {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        .metric-box {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            text-align: center;
-        }
-        .metric-val { font-size: 1.4rem; font-weight: 700; color: #fff; margin-top: 0.25rem; }
-        .metric-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Offline hemodialysis spKt/V, URR, eKt/V, weekly standard Kt/V and approximate nPCR calculator.">
+  <title>Dialysis Adequacy — Kt/V Calculator</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0b1220;--panel:#111d32;--line:#344459;--muted:#b7c5da;--text:#f5f7fc;--accent:#87bfff}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,sans-serif}
+    main{max-width:1040px;margin:auto;padding:32px 20px 56px}
+    h1{font-size:clamp(1.6rem,4vw,2.4rem);margin:0 0 8px;line-height:1.2}h2{font-size:1.2rem;margin:0 0 18px}
+    p{margin:0 0 14px}.lede{color:var(--muted);max-width:740px}
+    .layout{display:grid;grid-template-columns:minmax(280px,1fr) minmax(280px,1fr);gap:20px;margin-top:26px;align-items:start}
+    .panel{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:24px}
+    label{display:block;font-size:.9rem;font-weight:650;margin:0 0 5px}
+    .field{margin-bottom:15px}input,select,button{font:inherit}input,select{width:100%;border-radius:8px;border:1px solid #77869b;background:#0b1526;color:white;padding:10px 12px}
+    input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+    .buttons{display:flex;gap:10px;flex-wrap:wrap}
+    button{border:1px solid var(--accent);border-radius:8px;background:#2563a8;color:white;font-weight:650;padding:10px 14px;cursor:pointer}
+    button.secondary{background:transparent;color:var(--text)}button:disabled{opacity:.45;cursor:not-allowed}
+    .notice{border-left:4px solid #87bfff;padding:10px 14px;background:#152843;border-radius:5px;margin:0 0 16px}
+    .notice.error{border-color:#ff9999}.notice.success{border-color:#8de2b2}
+    .metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}
+    .metric{border:1px solid var(--line);border-radius:8px;padding:12px}
+    .metric span{display:block;color:var(--muted);font-size:.83rem}.metric strong{display:block;font-size:1.55rem;font-variant-numeric:tabular-nums}
+    .note{color:var(--muted);font-size:.89rem}.assumptions{margin-top:22px;border-top:1px solid var(--line);padding-top:20px}
+    .assumptions a{color:#a7d2ff}
+    @media(max-width:750px){.layout{grid-template-columns:1fr}main{padding:20px 12px 40px}.panel{padding:18px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+  </style>
+  <script src="calculator.js" defer></script>
+  <script src="app.js" defer></script>
 </head>
 <body>
-
-    <div class="header">
-        <div class="header-title">
-            <h1>Dialysis Adequacy Ktv Engine</h1>
-            <p>Domain: Clinical & Cryptographic AI | Standard: CAP / CLSI / NIST Standards | LabMind-Atlas Architecture</p>
+<main>
+  <header>
+    <h1>Hemodialysis adequacy calculator</h1>
+    <p class="lede">Estimate single-pool Kt/V, urea reduction ratio, equilibrated Kt/V and weekly standard Kt/V. nPCR is estimated for thrice-weekly treatments only. All calculations run in your browser.</p>
+  </header>
+  <div class="layout">
+    <section class="panel" aria-labelledby="input-title">
+      <h2 id="input-title">Session measurements</h2>
+      <form id="calculator">
+        <div class="field"><label for="pre">Pre-dialysis BUN (mg/dL)</label><input id="pre" name="pre" type="number" min="0.001" step="any" required value="60"></div>
+        <div class="field"><label for="post">Post-dialysis BUN (mg/dL)</label><input id="post" name="post" type="number" min="0.001" step="any" required value="15"></div>
+        <div class="field"><label for="hours">Treatment time (hours)</label><input id="hours" name="hours" type="number" min="2" max="24" step="any" required value="4"></div>
+        <div class="field"><label for="uf">Ultrafiltration volume (L)</label><input id="uf" name="uf" type="number" min="0" step="any" required value="2.5"></div>
+        <div class="field"><label for="weight">Post-dialysis weight (kg)</label><input id="weight" name="weight" type="number" min="0.001" step="any" required value="75"></div>
+        <div class="field"><label for="sessions">Treatments per week</label><input id="sessions" name="sessions" type="number" min="1" max="7" step="1" required value="3"></div>
+        <div class="field"><label for="position">Sample position in dialysis week (nPCR)</label>
+          <select id="position" name="position"><option value="beginning">Beginning of week</option><option value="midweek" selected>Midweek</option><option value="end">End of week</option></select>
         </div>
-        <div>
-            <span class="badge">Air-Gapped Active</span>
-            <span class="badge" style="background: rgba(16,185,129,0.2); color: #10b981; border-color: #10b981;">Zero-PHI Guard Active</span>
+        <div class="buttons">
+          <button type="submit">Calculate</button>
+          <button type="reset" class="secondary">Reset</button>
         </div>
-    </div>
-
-    <div class="metrics-bar">
-        <div class="metric-box">
-            <div class="metric-label">System Status</div>
-            <div class="metric-val" style="color: var(--success);" id="m-status">OPTIMAL</div>
+      </form>
+    </section>
+    <section class="panel" aria-labelledby="output-title">
+      <h2 id="output-title">Calculated estimates</h2>
+      <p id="message" class="notice" role="status" aria-live="polite">Enter measurement values to estimate dialysis adequacy.</p>
+      <div id="results" hidden>
+        <div class="metrics">
+          <div class="metric"><span>spKt/V</span><strong id="spktv"></strong></div>
+          <div class="metric"><span>URR</span><strong id="urr"></strong></div>
+          <div class="metric"><span>eKt/V (estimated)</span><strong id="ektv"></strong></div>
+          <div class="metric"><span>stdKt/V per week (estimated)</span><strong id="stdktv"></strong></div>
+          <div class="metric"><span>nPCR (g/kg/day)</span><strong id="npcr"></strong></div>
         </div>
-        <div class="metric-box">
-            <div class="metric-label">Tasks Processed</div>
-            <div class="metric-val" id="m-tasks">142</div>
-        </div>
-        <div class="metric-box">
-            <div class="metric-label">Audit Blocks Signed</div>
-            <div class="metric-val" id="m-audit">142</div>
-        </div>
-        <div class="metric-box">
-            <div class="metric-label">PHI Interceptions</div>
-            <div class="metric-val" style="color: var(--accent);" id="m-phi">0</div>
-        </div>
-    </div>
-
-    <div class="grid">
-        <div class="card">
-            <h2>⚙️ Dispatch Distributed Component Audit</h2>
-            <div class="form-group">
-                <label>Task / Sample ID</label>
-                <input type="text" id="task_id" value="TASK-2026-LIVE-01">
-            </div>
-            <div class="form-group">
-                <label>Target Identifier</label>
-                <input type="text" id="target_id" value="SPECIMEN-ALPHA-77">
-            </div>
-            <div class="form-group">
-                <label>Primary Measurement / Value</label>
-                <input type="number" id="primary_metric" value="29.4" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>Secondary Metric / Kinetic Index</label>
-                <input type="number" id="secondary_metric" value="14.8" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>Status / Phenotype Descriptor</label>
-                <input type="text" id="status_descriptor" value="DISCORDANT_ANOMALY">
-            </div>
-            <div class="form-group">
-                <label><input type="checkbox" id="is_critical" checked> Trigger Emergency / Critical Flag</label>
-            </div>
-            <button class="btn" onclick="runAudit()">Execute Distributed Component Audit</button>
-        </div>
-
-        <div class="card">
-            <h2>📊 Real-Time Consensus Dossier & Audit Log</h2>
-            <div class="terminal" id="outputConsole">// Dialysis Adequacy Ktv Engine Operations Console Ready
-// Connection established with Air-Gapped Supervisor
-// Cryptographic HMAC-SHA256 audit ledger loaded.
-// Ready for live task payload dispatch...</div>
-        </div>
-    </div>
-
-    <script>
-        async function runAudit() {
-            const consoleEl = document.getElementById('outputConsole');
-            consoleEl.innerText = "// Dispatching task across specialized workers...
-// Invoking InvariantQCWorker, SafetyEscalationWorker, ProtocolWorker...";
-
-            const payload = {
-                task_id: document.getElementById('task_id').value,
-                target_identifier: document.getElementById('target_id').value,
-                primary_metric: parseFloat(document.getElementById('primary_metric').value),
-                secondary_metric: parseFloat(document.getElementById('secondary_metric').value),
-                status_descriptor: document.getElementById('status_descriptor').value,
-                is_critical_flag: document.getElementById('is_critical').checked
-            };
-
-            try {
-                const res = await fetch('/api/audit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                consoleEl.innerText = JSON.stringify(data, null, 2);
-                document.getElementById('m-tasks').innerText = parseInt(document.getElementById('m-tasks').innerText) + 1;
-                document.getElementById('m-audit').innerText = parseInt(document.getElementById('m-audit').innerText) + 1;
-            } catch (err) {
-                consoleEl.innerText = "// Offline / Simulation Output:\n" + JSON.stringify({
-                    dossier_id: "DOSSIER-SIM-" + Math.floor(Math.random()*10000),
-                    system: "dialysis-adequacy-ktv-engine",
-                    domain: "Clinical & Cryptographic AI",
-                    task_id: payload.task_id,
-                    overall_urgency: payload.is_critical_flag ? "CRITICAL_STAT_PANIC" : "ELEVATED_RISK",
-                    integrity_status: "DISCORDANT_ANOMALY",
-                    alerts: [
-                        { worker: "InvariantQCWorker", alert: "Primary metric exceeds upper reference bound" },
-                        { worker: "SafetyEscalationWorker", alert: "Critical emergency interlock flag active" }
-                    ],
-                    audit_hash: "HMAC_SHA256_e83f9a72b941d6c381f9"
-                }, null, 2);
-            }
-        }
-    </script>
+        <p id="assessment"></p>
+        <p class="note" id="thresholds"></p>
+        <p class="note" id="npcr-note"></p>
+      </div>
+      <button id="export" type="button" class="secondary" disabled>Export JSON result</button>
+      <div class="assumptions">
+        <h2>Scope and limitations</h2>
+        <p class="note">Results are approximations for hemodialysis and depend on correct post-treatment blood sampling, access type and treatment conditions. The eKt/V rate equation assumes arterial access and at least 2 hours of dialysis. Weekly stdKt/V uses a fixed-volume model and excludes residual kidney function; nPCR assumes three sessions per week and negligible residual renal urea clearance.</p>
+        <p class="note">For research and education, not clinical decision-making or automated prescribing. Do not enter patient identifiers. Values are processed locally; the site contains no telemetry or external scripts.</p>
+        <p class="note">References: <a href="https://www.sciencedirect.com/science/article/pii/S0272638615010197" rel="noopener noreferrer" target="_blank">KDOQI 2015</a>;
+        <a href="https://doi.org/10.1046/j.1492-7535.2003.01216.x" rel="noopener noreferrer" target="_blank">Leypoldt et al. (2003)</a>;
+        <a href="https://pubmed.ncbi.nlm.nih.gov/8738814/" rel="noopener noreferrer" target="_blank">Depner &amp; Daugirdas (1996)</a>.</p>
+      </div>
+    </section>
+  </div>
+</main>
 </body>
 </html>

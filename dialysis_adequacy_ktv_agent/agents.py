@@ -93,7 +93,7 @@ class DialysisCoordinator:
             "stat_critical_alerts": stat_count,
             "warning_alerts": warn_count,
             "alerts": [a.to_dict() for a in all_alerts],
-            "guideline_standard": "KDOQI Hemodialysis Adequacy & KDIGO CKD 2024",
+            "guideline_standard": "nonclinical demonstration rules",
             "consensus_summary": f"Multi-agent supervision completed across 3 sub-agents with status [{status.value}].",
         }
 
@@ -105,6 +105,6 @@ class DialysisCoordinator:
         if "status" in q or "summary" in q:
             return f"KtV-Sentinel: Hemodialysis Single-Pool & Equilibrated Kt/V Adequacy Agent currently tracking {len(self.case_registry)} cases in on-premises memory."
         elif "guideline" in q or "standard" in q:
-            return "Active clinical surveillance operates under KDOQI Hemodialysis Adequacy & KDIGO CKD 2024 validated protocols."
+            return "This legacy audit applies demonstration thresholds, not validated dialysis adequacy protocols."
         else:
-            return f"KtV-Sentinel: Hemodialysis Single-Pool & Equilibrated Kt/V Adequacy Agent executive agent online. Zero-PHI air-gapped monitoring active."
+            return f"KtV-Sentinel: Hemodialysis Single-Pool & Equilibrated Kt/V Adequacy Agent executive agent online. No external model is connected; do not enter patient identifiers."
