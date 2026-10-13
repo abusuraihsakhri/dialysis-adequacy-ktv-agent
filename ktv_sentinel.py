@@ -1,274 +1,167 @@
 #!/usr/bin/env python3
+"""Dialysis urea-kinetic estimates for educational and audit use.
+
+Clinical interpretation depends on dialysis schedule, specimen collection,
+residual kidney function and an independent clinical review.
 """
-Dialysis Adequacy Kt/V Calculator
-
-Real implementations for:
-- Single-pool Kt/V (spKt/V) via Daugirdas II formula
-- Equilibrated Kt/V (eKt/V)
-- URR (Urea Reduction Ratio)
-- Standard Kt/V (stdKt/V) for peritoneal dialysis
-- Normalized Protein Catabolic Rate (nPCR)
-
-References: KDOQI 2015, Daugirdas JT (Semin Dial 2001)
-Stdlib only.
-"""
-
 import argparse
 import json
 import math
 import sys
-from typing import Dict, Any
+from typing import Any, Dict
+
+
+def _finite_positive(name: str, value: float) -> None:
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be a finite positive number")
+
+
+def _session_inputs(pre_bun: float, post_bun: float,
+                    dialysis_time_hr: float, uf_volume_l: float,
+                    post_weight_kg: float) -> None:
+    for name, val in (("Pre-dialysis BUN", pre_bun),
+                      ("Post-dialysis BUN", post_bun),
+                      ("Dialysis time", dialysis_time_hr),
+                      ("Post-dialysis weight", post_weight_kg)):
+        _finite_positive(name, val)
+    if post_bun >= pre_bun:
+        raise ValueError("Post-dialysis BUN must be less than pre-dialysis BUN")
+    if not math.isfinite(uf_volume_l) or uf_volume_l < 0:
+        raise ValueError("Ultrafiltration volume must be finite and nonnegative")
+    if dialysis_time_hr > 24:
+        raise ValueError("Dialysis time must not exceed 24 hours")
 
 
 def calc_spktv(pre_bun: float, post_bun: float, dialysis_time_hr: float,
                uf_volume_l: float, post_weight_kg: float) -> Dict[str, Any]:
-    """
-    Single-pool Kt/V using Daugirdas II formula.
-
-    spKt/V = -ln(R - 0.008 × t) + (4 - 3.5 × R) × UF/W
-
-    where:
-        R = Post-dialysis BUN / Pre-dialysis BUN
-        t = dialysis time in hours
-        UF = ultrafiltration volume in liters
-        W = post-dialysis weight in kg
-
-    Args:
-        pre_bun: Pre-dialysis BUN (mg/dL)
-        post_bun: Post-dialysis BUN (mg/dL)
-        dialysis_time_hr: Dialysis session time in hours
-        uf_volume_l: Ultrafiltration volume in liters
-        post_weight_kg: Post-dialysis weight in kg
-
-    Returns:
-        Dict with spKt/V and components
-    """
-    if pre_bun <= 0:
-        raise ValueError("Pre-dialysis BUN must be positive")
-    if post_bun <= 0:
-        raise ValueError("Post-dialysis BUN must be positive")
-    if post_bun >= pre_bun:
-        raise ValueError("Post-dialysis BUN must be less than pre-dialysis BUN")
-    if dialysis_time_hr <= 0:
-        raise ValueError("Dialysis time must be positive")
-    if post_weight_kg <= 0:
-        raise ValueError("Post-dialysis weight must be positive")
-
-    R = post_bun / pre_bun
-    t = dialysis_time_hr
-    UF = uf_volume_l
-    W = post_weight_kg
-
-    # Daugirdas II formula
-    spktv = -math.log(R - 0.008 * t) + (4 - 3.5 * R) * (UF / W)
-
-    adequate = spktv >= 1.2
-
+    """Second-generation Daugirdas spKt/V; t hours, UF liters, W kg."""
+    _session_inputs(pre_bun, post_bun, dialysis_time_hr, uf_volume_l, post_weight_kg)
+    ratio = post_bun / pre_bun
+    log_arg = ratio - 0.008 * dialysis_time_hr
+    if log_arg <= 0:
+        raise ValueError("R - 0.008*t must be positive (logarithm domain)")
+    spktv = -math.log(log_arg) + (4 - 3.5 * ratio) * (uf_volume_l / post_weight_kg)
+    if not math.isfinite(spktv) or spktv <= 0:
+        raise ValueError("Computed spKt/V is outside the valid domain")
     return {
-        "spktv": round(spktv, 3),
-        "R_ratio": round(R, 4),
-        "pre_bun": pre_bun,
-        "post_bun": post_bun,
-        "dialysis_time_hr": dialysis_time_hr,
-        "uf_volume_l": uf_volume_l,
+        "spktv": round(spktv, 3), "R_ratio": round(ratio, 4),
+        "pre_bun": pre_bun, "post_bun": post_bun,
+        "dialysis_time_hr": dialysis_time_hr, "uf_volume_l": uf_volume_l,
         "post_weight_kg": post_weight_kg,
-        "target_spktv": 1.2,
-        "adequate": adequate,
-        "recommendation": ("Adequate dialysis (spKt/V ≥ 1.2)." if adequate
-                           else "Inadequate dialysis. Consider increasing time, blood flow, or dialyzer size."),
+        "minimum_spktv": 1.2, "target_spktv": 1.4,
+        "adequate": spktv >= 1.2,
+        "recommendation": ("Meets the KDOQI minimum of 1.2 for thrice-weekly HD; "
+                           "the prescribed target is 1.4."
+                           if spktv >= 1.2 else
+                           "Below the KDOQI minimum of 1.2 for thrice-weekly HD; "
+                           "verify sampling and review clinically."),
     }
 
 
 def calc_urr(pre_bun: float, post_bun: float) -> Dict[str, Any]:
-    """
-    Urea Reduction Ratio (URR).
-
-    URR = (PreBUN - PostBUN) / PreBUN × 100
-
-    Target URR ≥ 65%
-
-    Args:
-        pre_bun: Pre-dialysis BUN (mg/dL)
-        post_bun: Post-dialysis BUN (mg/dL)
-
-    Returns:
-        Dict with URR percentage and adequacy
-    """
-    if pre_bun <= 0:
-        raise ValueError("Pre-dialysis BUN must be positive")
-    if post_bun < 0:
-        raise ValueError("Post-dialysis BUN cannot be negative")
-    if post_bun >= pre_bun:
-        raise ValueError("Post-dialysis BUN must be less than pre-dialysis BUN")
-
-    urr = ((pre_bun - post_bun) / pre_bun) * 100.0
-    adequate = urr >= 65.0
-
-    return {
-        "urr_percent": round(urr, 1),
-        "pre_bun": pre_bun,
-        "post_bun": post_bun,
-        "target_urr_percent": 65.0,
-        "adequate": adequate,
-        "recommendation": ("URR ≥ 65%: Adequate dialysis." if adequate
-                           else "URR < 65%: Inadequate dialysis. Review treatment parameters."),
-    }
+    """Urea reduction ratio; a screening proxy, not a substitute for Kt/V."""
+    _finite_positive("Pre-dialysis BUN", pre_bun)
+    if not math.isfinite(post_bun) or post_bun < 0 or post_bun >= pre_bun:
+        raise ValueError("Post-dialysis BUN must be finite, nonnegative, and less than pre-BUN")
+    urr = 100.0 * (pre_bun - post_bun) / pre_bun
+    return {"urr_percent": round(urr, 1), "pre_bun": pre_bun,
+            "post_bun": post_bun, "target_urr_percent": 65.0,
+            "adequate": urr >= 65,
+            "recommendation": "URR is a screening measure; evaluate spKt/V and clinical context."}
 
 
 def calc_ektv(spktv: float, dialysis_time_hr: float) -> Dict[str, Any]:
+    """Rate-equation arterial-access estimate of eKt/V (not direct measurement).
+
+    Daugirdas/Schneditz: eKt/V = spKt/V - 0.60*spKt/V/t + 0.03.
     """
-    Equilibrated Kt/V (eKt/V) from spKt/V.
-
-    eKt/V = spKt/V - 0.6 × (spKt/V / t) + 0.03
-
-    Accounts for urea rebound after dialysis stops.
-
-    Args:
-        spktv: Single-pool Kt/V
-        dialysis_time_hr: Dialysis time in hours
-
-    Returns:
-        Dict with eKt/V
-    """
-    if dialysis_time_hr <= 0:
-        raise ValueError("Dialysis time must be positive")
-
-    ektv = spktv - 0.6 * (spktv / dialysis_time_hr) + 0.03
-
-    return {
-        "ektv": round(ektv, 3),
-        "spktv": spktv,
-        "dialysis_time_hr": dialysis_time_hr,
-        "target_ektv": 1.2,
-        "adequate": ektv >= 1.2,
-        "recommendation": ("eKt/V adequate (≥ 1.2)." if ektv >= 1.2
-                           else "eKt/V below target. Consider extending session."),
-    }
+    _finite_positive("spKt/V", spktv)
+    _finite_positive("Dialysis time", dialysis_time_hr)
+    if dialysis_time_hr < 2 or dialysis_time_hr > 24:
+        raise ValueError("The eKt/V rate equation requires 2 to 24 hours")
+    ektv = spktv - 0.6 * spktv / dialysis_time_hr + 0.03
+    if not math.isfinite(ektv) or ektv <= 0:
+        raise ValueError("Computed eKt/V is outside the valid domain")
+    return {"ektv": round(ektv, 3), "spktv": spktv,
+            "dialysis_time_hr": dialysis_time_hr,
+            "target_ektv": None, "adequate": None,
+            "recommendation": "Estimated eKt/V; no independent universal eKt/V threshold applied."}
 
 
 def calc_stdktv(spktv: float, sessions_per_week: float = 3.0,
                 dialysis_time_hr: float = 4.0) -> Dict[str, Any]:
+    """Approximate weekly standard Kt/V from a fixed-volume Leypoldt model.
+
+    stdKt/V = [168*(1-exp(-eKt/V))/t] /
+              [(1-exp(-eKt/V))/eKt/V + 168/(N*t) - 1]
+    t in hours; excludes residual renal urea clearance.
     """
-    Standard Kt/V (stdKt/V) for comparing different dialysis schedules.
-
-    stdKt/V ≈ (10080 × spKt/V) / (t × sessions_per_week × (1 - e^(-spKt/V/t)) + 10080 - t × sessions_per_week)
-
-    Simplified: stdKt/V = spKt/V × 7 / (sessions_per_week × (1 + 0.47 × spKt/V / t))
-
-    Target: stdKt/V ≥ 2.0 (HD), ≥ 1.7 (PD weekly)
-
-    Args:
-        spktv: Single-pool Kt/V per session
-        sessions_per_week: Number of sessions per week
-        dialysis_time_hr: Hours per session
-
-    Returns:
-        Dict with stdKt/V
-    """
-    if spktv <= 0:
-        raise ValueError("spKt/V must be positive")
-    if sessions_per_week <= 0:
-        raise ValueError("Sessions per week must be positive")
-    if dialysis_time_hr <= 0:
-        raise ValueError("Dialysis time must be positive")
-
-    # Standard Kt/V formula (Gotch)
-    weekly_time = sessions_per_week * dialysis_time_hr
-    equilibration_factor = 1 - math.exp(-spktv / dialysis_time_hr)
-    if equilibration_factor == 0:
-        equilibration_factor = 0.001
-
-    stdktv = (10080 * spktv) / (weekly_time * equilibration_factor + 10080 - weekly_time)
-
-    target = 2.0
-    adequate = stdktv >= target
-
+    _finite_positive("spKt/V", spktv)
+    _finite_positive("Dialysis time", dialysis_time_hr)
+    _finite_positive("Sessions per week", sessions_per_week)
+    if dialysis_time_hr < 2 or dialysis_time_hr > 24:
+        raise ValueError("Treatment duration must be between 2 and 24 hours")
+    if sessions_per_week != int(sessions_per_week) or not 1 <= sessions_per_week <= 7:
+        raise ValueError("Sessions per week must be an integer from 1 to 7")
+    ektv = calc_ektv(spktv, dialysis_time_hr)["ektv"]
+    # Calculate from unrounded eKt/V to avoid premature rounding.
+    ek = spktv - 0.6 * spktv / dialysis_time_hr + 0.03
+    fraction = -math.expm1(-ek)
+    denom = fraction / ek + 168 / (sessions_per_week * dialysis_time_hr) - 1
+    if denom <= 0:
+        raise ValueError("Invalid standardized Kt/V denominator")
+    result = 168 * fraction / dialysis_time_hr / denom
     return {
-        "stdktv": round(stdktv, 3),
-        "spktv_per_session": spktv,
-        "sessions_per_week": sessions_per_week,
+        "stdktv": round(result, 3), "spktv_per_session": spktv,
+        "ektv_estimate": ektv, "sessions_per_week": int(sessions_per_week),
         "dialysis_time_hr": dialysis_time_hr,
-        "target_stdktv": target,
-        "adequate": adequate,
-        "recommendation": ("stdKt/V adequate (≥ 2.0)." if adequate
-                           else "stdKt/V below target. Increase frequency or session dose."),
+        "minimum_stdktv": 2.1, "target_stdktv": 2.3,
+        "adequate": result >= 2.1,
+        "recommendation": ("For non-thrice-weekly HD, KDOQI suggests a weekly "
+                           "target of 2.3 and minimum of 2.1; this fixed-volume "
+                           "estimate excludes residual renal function."),
     }
 
 
 def calc_nPCR(pre_bun: float, post_bun: float, dialysis_time_hr: float,
               uf_volume_l: float, post_weight_kg: float,
               interdialytic_interval_hr: float = 48.0,
-              interdialytic_weight_gain_kg: float = 2.0) -> Dict[str, Any]:
+              interdialytic_weight_gain_kg: float = 2.0,
+              session_position: str = "midweek") -> Dict[str, Any]:
+    """Estimate nPCR for thrice-weekly HD using Depner-Daugirdas equations.
+
+    Default assumes a midweek sample and negligible residual renal function.
+    The two legacy interdialytic parameters are accepted for compatibility,
+    but are not inputs to these published two-point equations.
     """
-    Normalized Protein Catabolic Rate (nPCR) from pre/post BUN.
-
-    nPCR (g/kg/day) = (C0 - Ct + UF × Ct/Vd) / (t/24) / Vd_normalized + 0.17
-
-    Simplified Borah formula:
-    nPCR = 0.01 × (pre_BUN - post_BUN) / (t/24) + 0.17
-    adjusted for volume of distribution.
-
-    More accurate (Gotch):
-    G (mg/min) = (V2 × C2 - V1 × C1) / t
-    where V1 = post-weight × 0.6, V2 = V1 + UF
-    nPCR = G / (V1 / 0.6) / 1000 × 1440
-
-    Args:
-        pre_bun: Pre-dialysis BUN (mg/dL)
-        post_bun: Post-dialysis BUN (mg/dL)
-        dialysis_time_hr: Session duration (hours)
-        uf_volume_l: Ultrafiltration volume (liters)
-        post_weight_kg: Post-dialysis weight (kg)
-        interdialytic_interval_hr: Hours between sessions (default 48)
-        interdialytic_weight_gain_kg: Weight gain between sessions (kg)
-
-    Returns:
-        Dict with nPCR
-    """
-    if pre_bun <= 0 or post_bun < 0:
-        raise ValueError("BUN values must be positive")
-    if post_weight_kg <= 0:
-        raise ValueError("Weight must be positive")
-
-    # Volume of distribution (L) - Watson approximation
-    vd_post = 0.6 * post_weight_kg  # post-dialysis
-    vd_pre = vd_post + uf_volume_l   # pre-dialysis
-
-    # Generation rate calculation
-    # G (mg/min) = (Vd_pre × pre_BUN - Vd_post × post_BUN) / (t × 60)
-    # Convert BUN from mg/dL to mg/L: × 10
-    t_min = dialysis_time_hr * 60.0
-    generation_mg_min = (vd_pre * pre_bun * 10 - vd_post * post_bun * 10) / t_min
-
-    # nPCR = G / Vd_post (normalized) × 1440 min/day / 1000 (mg to g)
-    # nPCR (g/kg/day) = G × 1440 / (Vd_post × 1000) / weight
-    npcr = (generation_mg_min * 1440.0) / (vd_post * 1000.0)
-
-    # Simplified alternative (Borah)
-    npcr_simplified = 0.01 * (pre_bun - post_bun) / (dialysis_time_hr / 24.0) + 0.17
-
-    # Interpretation
-    if npcr < 0.8:
-        status = "low"
-        recommendation = "nPCR < 0.8 g/kg/day: Possible protein intake insufficiency. Nutritional counseling."
-    elif npcr <= 1.4:
-        status = "adequate"
-        recommendation = "nPCR 0.8-1.4 g/kg/day: Adequate protein intake."
-    else:
-        status = "high"
-        recommendation = "nPCR > 1.4 g/kg/day: High protein catabolism. Evaluate for infection/hypercatabolism."
-
+    _session_inputs(pre_bun, post_bun, dialysis_time_hr, uf_volume_l, post_weight_kg)
+    _finite_positive("Interdialytic interval", interdialytic_interval_hr)
+    if not math.isfinite(interdialytic_weight_gain_kg) or interdialytic_weight_gain_kg < 0:
+        raise ValueError("Interdialytic weight gain must be finite and nonnegative")
+    # Coefficients by position in a thrice-weekly HD schedule.
+    coefficients = {"beginning": (36.3, 5.48, 53.5),
+                    "midweek": (25.8, 1.15, 56.4),
+                    "end": (16.3, 4.30, 56.6)}
+    if session_position not in coefficients:
+        raise ValueError("session_position must be beginning, midweek or end")
+    ktv = -math.log(post_bun / pre_bun - 0.008 * dialysis_time_hr) + (
+        4 - 3.5 * post_bun / pre_bun) * (uf_volume_l / post_weight_kg) if (
+        post_bun / pre_bun - 0.008 * dialysis_time_hr) > 0 else None
+    if ktv is None or ktv <= 0 or not math.isfinite(ktv):
+        raise ValueError("Invalid spKt/V for nPCR estimate")
+    a, b, c = coefficients[session_position]
+    npcr = pre_bun / (a + b * ktv + c / ktv) + 0.168
+    status = "low" if npcr < 0.8 else "high" if npcr > 1.4 else "adequate"
     return {
         "npcr_g_kg_day": round(npcr, 3),
-        "npcr_simplified": round(npcr_simplified, 3),
-        "generation_rate_mg_min": round(generation_mg_min, 2),
-        "vd_post_l": round(vd_post, 1),
-        "vd_pre_l": round(vd_pre, 1),
-        "pre_bun": pre_bun,
-        "post_bun": post_bun,
-        "status": status,
-        "target_range": "0.8-1.4 g/kg/day",
-        "recommendation": recommendation,
+        "npcr_simplified": round(npcr, 3),
+        "generation_rate_mg_min": None, "vd_post_l": None, "vd_pre_l": None,
+        "pre_bun": pre_bun, "post_bun": post_bun,
+        "status": status, "target_range": "context dependent",
+        "session_position": session_position,
+        "method": "Depner-Daugirdas two-point equation (thrice-weekly HD)",
+        "recommendation": ("Estimate assumes a thrice-weekly schedule and minimal "
+                           "residual urea clearance; cannot diagnose nutrition on its own."),
     }
 
 
@@ -276,24 +169,20 @@ def full_adequacy_assessment(pre_bun: float, post_bun: float,
                               dialysis_time_hr: float, uf_volume_l: float,
                               post_weight_kg: float,
                               sessions_per_week: float = 3.0) -> Dict[str, Any]:
-    """
-    Complete dialysis adequacy assessment.
-
-    Returns spKt/V, eKt/V, stdKt/V, URR, and nPCR.
-    """
+    """Return component estimates. nPCR is omitted outside thrice-weekly HD."""
     sp = calc_spktv(pre_bun, post_bun, dialysis_time_hr, uf_volume_l, post_weight_kg)
     urr = calc_urr(pre_bun, post_bun)
     ek = calc_ektv(sp["spktv"], dialysis_time_hr)
     std = calc_stdktv(sp["spktv"], sessions_per_week, dialysis_time_hr)
-    npcr = calc_nPCR(pre_bun, post_bun, dialysis_time_hr, uf_volume_l, post_weight_kg)
-
+    npcr = (calc_nPCR(pre_bun, post_bun, dialysis_time_hr, uf_volume_l,
+                     post_weight_kg) if sessions_per_week == 3 else None)
     return {
-        "spktv": sp,
-        "urr": urr,
-        "ektv": ek,
-        "stdktv": std,
+        "spktv": sp, "urr": urr, "ektv": ek, "stdktv": std,
         "npcr": npcr,
-        "overall_adequate": sp["adequate"] and urr["adequate"],
+        "overall_adequate": (sp["adequate"] and urr["adequate"]
+                             if sessions_per_week == 3 else std["adequate"]),
+        "interpretation": ("Screening thresholds only; not a prescription decision. "
+                           "Verify urea sampling and residual renal function."),
     }
 
 
