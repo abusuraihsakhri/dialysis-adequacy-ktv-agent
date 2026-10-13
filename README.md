@@ -1,5 +1,7 @@
 # Dialysis Adequacy — Kt/V Calculator
 
+### [Open the Live Application →](https://abusuraihsakhri.github.io/dialysis-adequacy-ktv-agent/)
+
 Hemodialysis urea-kinetic estimates for education, research and local audit.
 The source contains a standalone browser calculator, a Python calculation CLI,
 and a separate, legacy rule-based coordinator. **Not a clinical decision-support
