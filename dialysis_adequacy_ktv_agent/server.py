@@ -17,6 +17,7 @@ class AdequacyRequest(BaseModel):
     uf_volume_l: float
     post_weight_kg: float
     sessions_per_week: int = Field(default=3, ge=1, le=7)
+    session_position: str = "midweek"
 
 
 class AuditRequest(BaseModel):
@@ -49,7 +50,8 @@ def create_app():
         try:
             return full_adequacy_assessment(
                 req.pre_bun, req.post_bun, req.dialysis_time_hr,
-                req.uf_volume_l, req.post_weight_kg, req.sessions_per_week
+                req.uf_volume_l, req.post_weight_kg, req.sessions_per_week,
+                req.session_position
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
