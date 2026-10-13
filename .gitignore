@@ -8,3 +8,14 @@ output.csv
 dist/
 build/
 *.egg-info/
+
+# Local secrets and development environments
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+.idea/
+.vscode/
+.coverage
+htmlcov/
