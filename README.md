@@ -1,207 +1,102 @@
-# Dialysis Adequacy Ktv Agent
+# Dialysis Adequacy — Kt/V Calculator
 
-> **Domain:** Nephrology & Renal Replacement Protocols  
-> **Reference Guidelines & Standards:** `KDIGO & KDOQI Clinical Guidelines`
+Hemodialysis urea-kinetic estimates for education, research and local audit.
+The source contains a standalone browser calculator, a Python calculation CLI,
+and a separate, legacy rule-based coordinator. **Not a clinical decision-support
+system or a substitute for dialysis-unit measurement protocols.**
 
-<div align="center">
+## Browser calculator
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+Open `web/index.html` in a current desktop or mobile browser, or serve the
+repository root with `python -m http.server 8000` and visit
+`http://localhost:8000/web/`. Enter paired BUN measurements, treatment
+duration, ultrafiltration volume, post-dialysis weight, weekly frequency and
+the sampling position in the dialysis week. Select **Calculate**; export
+results as JSON if needed. The interface requires no accounts or packages.
 
-</div>
+**Privacy:** All browser calculations execute locally with JavaScript. No
+measurements are transmitted by the application and no analytics or remote
+scripts are included. Do not enter personally identifiable or patient data;
+hosting providers may retain ordinary HTTP access logs.
 
----
+## Calculations
 
-## 📖 What It Does
+| Result | Method and scope |
+| --- | --- |
+| spKt/V | Daugirdas second-generation logarithmic equation, based on pre/post BUN, treatment time, UF and post-treatment weight. |
+| URR | `100 × (pre-BUN − post-BUN) / pre-BUN`. |
+| eKt/V | Arterial-access rate-equation **estimate** from spKt/V and treatment duration (2 hours or longer). |
+| Weekly stdKt/V | Leypoldt fixed-volume approximation from estimated eKt/V, duration and sessions/week. Excludes residual kidney clearance. |
+| nPCR | Depner–Daugirdas two-point estimate for **thrice-weekly HD**, selected beginning/mid/end-of-week equations; otherwise not returned. Assumes negligible residual renal clearance. |
 
-**Dialysis Adequacy Ktv Agent** is an advanced analytical and computational platform implementing Hemodialysis Daugirdas II Single-Pool spKt/V & nPCR Agent.
+KDOQI 2015 recommends **spKt/V target 1.4, minimum delivered 1.2**
+for conventional thrice-weekly hemodialysis. For other frequencies,
+**weekly stdKt/V target 2.3, minimum 2.1** is suggested. URR ≥65% is a
+supplementary screening reference; it does not replace spKt/V.
 
----
+Inputs must be finite; post-BUN must be lower than pre-BUN, the Daugirdas
+logarithm argument positive, UF nonnegative, duration 2–24 hours for the
+full assessment and frequency an integer from 1–7/week. Equations and
+thresholds require clinical interpretation and proper specimen sampling.
 
-## ⚙️ Key Capabilities & Algorithmic Modules
+## Python usage
 
-### 🔬 Analytical Functions
+Requires Python 3.9+. For local development:
 
-- **`calc_spktv()`**: Single-pool Kt/V using Daugirdas II formula.
-
-spKt/V = -ln(R - 0.008 × t) + (4 - 3.5 × R) × UF/W
-
-where:
-    R = Post-dialysis BUN / Pre-dialysis BUN
-    t = dialysis time in hours
-    UF = ultrafiltration volume in liters
-    W = post-dialysis weight in kg
-
-Args:
-    pre_bun: Pre-dialysis BUN (mg/dL)
-    post_bun: Post-dialysis BUN (mg/dL)
-    dialysis_time_hr: Dialysis session time in hours
-    uf_volume_l: Ultrafiltration volume in liters
-    post_weight_kg: Post-dialysis weight in kg
-
-Returns:
-    Dict with spKt/V and components
-- **`calc_urr()`**: Urea Reduction Ratio (URR).
-
-URR = (PreBUN - PostBUN) / PreBUN × 100
-
-Target URR ≥ 65%
-
-Args:
-    pre_bun: Pre-dialysis BUN (mg/dL)
-    post_bun: Post-dialysis BUN (mg/dL)
-
-Returns:
-    Dict with URR percentage and adequacy
-- **`calc_ektv()`**: Equilibrated Kt/V (eKt/V) from spKt/V.
-
-eKt/V = spKt/V - 0.6 × (spKt/V / t) + 0.03
-
-Accounts for urea rebound after dialysis stops.
-
-Args:
-    spktv: Single-pool Kt/V
-    dialysis_time_hr: Dialysis time in hours
-
-Returns:
-    Dict with eKt/V
-- **`calc_stdktv()`**: Standard Kt/V (stdKt/V) for comparing different dialysis schedules.
-
-stdKt/V ≈ (10080 × spKt/V) / (t × sessions_per_week × (1 - e^(-spKt/V/t)) + 10080 - t × sessions_per_week)
-
-Simplified: stdKt/V = spKt/V × 7 / (sessions_per_week × (1 + 0.47 × spKt/V / t))
-
-Target: stdKt/V ≥ 2.0 (HD), ≥ 1.7 (PD weekly)
-
-Args:
-    spktv: Single-pool Kt/V per session
-    sessions_per_week: Number of sessions per week
-    dialysis_time_hr: Hours per session
-
-Returns:
-    Dict with stdKt/V
-- **`calc_nPCR()`**: Normalized Protein Catabolic Rate (nPCR) from pre/post BUN.
-
-nPCR (g/kg/day) = (C0 - Ct + UF × Ct/Vd) / (t/24) / Vd_normalized + 0.17
-
-Simplified Borah formula:
-nPCR = 0.01 × (pre_BUN - post_BUN) / (t/24) + 0.17
-adjusted for volume of distribution.
-
-More accurate (Gotch):
-G (mg/min) = (V2 × C2 - V1 × C1) / t
-where V1 = post-weight × 0.6, V2 = V1 + UF
-nPCR = G / (V1 / 0.6) / 1000 × 1440
-
-Args:
-    pre_bun: Pre-dialysis BUN (mg/dL)
-    post_bun: Post-dialysis BUN (mg/dL)
-    dialysis_time_hr: Session duration (hours)
-    uf_volume_l: Ultrafiltration volume (liters)
-    post_weight_kg: Post-dialysis weight (kg)
-    interdialytic_interval_hr: Hours between sessions (default 48)
-    interdialytic_weight_gain_kg: Weight gain between sessions (kg)
-
-Returns:
-    Dict with nPCR
-
----
-
-## 📐 Mathematical Formulation & Logic
-
-```text
-  - Single-pool Kt/V (spKt/V) via Daugirdas II formula
-  Single-pool Kt/V using Daugirdas II formula.
-  Daugirdas II formula
-  Standard Kt/V formula (Gotch)
-  Simplified Borah formula:
-```
-
----
-
-## 💻 CLI Quickstart & Usage
-
-### 1. Kt/V Sentinel CLI (root `cli.py`)
 ```bash
-# Single-pool Kt/V
-python cli.py spktv --pre-bun 60 --post-bun 15 --time 4 --uf-l 2.5 --weight 75
-
-# Urea Reduction Ratio
-python cli.py urr --pre-bun 60 --post-bun 15
-
-# Equilibrated Kt/V
-python cli.py ektv --spktv 1.4 --time 4
-
-# Standard Kt/V
-python cli.py stdktv --spktv 1.4 --sessions 3 --time 4
-
-# Normalized Protein Catabolic Rate
-python cli.py npcr --pre-bun 60 --post-bun 15 --time 4 --uf-l 2.5 --weight 75
-
-# Full adequacy assessment
+python -m pip install -e ".[server,test]"
 python cli.py full --pre-bun 60 --post-bun 15 --time 4 --uf-l 2.5 --weight 75 --sessions 3
+python cli.py spktv --pre-bun 60 --post-bun 15 --time 4 --uf-l 2.5 --weight 75
+python cli.py urr --pre-bun 60 --post-bun 15
+python -m pytest -q
+node web/test_calculator.cjs
 ```
 
-### 2. Dialysis Coordinators CLI (`dialysis_adequacy_ktv_agent/cli.py`)
-```bash
-# Clinical audit
-python dialysis_adequacy_ktv_agent_app.py audit --case-id CASE-001 --primary 26.2 --status DISCORDANT
+The command-line entry point `ktv-sentinel` exposes `spktv`, `urr`,
+`ektv`, `stdktv`, `npcr` and `full` subcommands. The
+`dialysis-adequacy-ktv-engine` command provides the older
+`audit`, `batch`, `chat` and `serve` workflows.
 
-# Batch processing from CSV
-python dialysis_adequacy_ktv_agent_app.py batch -i sample.csv -o results.csv
+The legacy audit's arbitrary metric thresholds are **demonstration rules
+only**, not KDOQI or KDIGO clinical cutoffs. The mock chat provider does
+not invoke an LLM or independently verify clinical information. The
+heuristic identifier checker is not an assurance of HIPAA de-identification.
 
-# System chat
-python dialysis_adequacy_ktv_agent_app.py chat "status summary"
-
-# Launch FastAPI server
-python dialysis_adequacy_ktv_agent_app.py serve --host 127.0.0.1 --port 8000
-```
-
----
-
-## 🛡️ Security & Enterprise Architecture
-
-* **Zero-PHI Outbound Interceptor:** Active regex inspection blocking SSNs, MRNs, phone numbers, emails, DOB, and patient names.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
-
-### Security Configuration
-
-Set the `AUDIT_SECRET_KEY` environment variable in production to ensure audit trail integrity across restarts:
+### Optional HTTP service
 
 ```bash
-export AUDIT_SECRET_KEY="your-secure-random-key"
+dialysis-adequacy-ktv-engine serve --host 127.0.0.1 --port 8000
 ```
 
-Without this variable, an ephemeral key is generated at runtime (with a warning), making cross-restart verification impossible.
+The `POST /api/adequacy` endpoint accepts JSON keys:
+`pre_bun`, `post_bun`, `dialysis_time_hr`, `uf_volume_l`,
+`post_weight_kg` and optional `sessions_per_week`.
+`GET /health` provides a health check. The legacy demonstration
+endpoints remain available at `/api/audit` and `/api/chat`.
+**The HTTP service has no user authentication: do not expose it publicly
+or submit patient information.**
 
----
+For Docker, set a strong private `AUDIT_SECRET_KEY` environment
+variable before `docker compose up --build`. Compose binds to
+`127.0.0.1:8000` by default. Logs are held in process memory and the
+audit trail is not a durable record system.
 
-## 🧪 Testing & Verification
+## Technology and tests
 
-Run the automated test suite:
+Python standard-library numeric calculations; FastAPI/Pydantic for the
+optional service; HTML, CSS and dependency-free JavaScript in the browser.
+Compatible with modern Chromium, Firefox and Safari (support for
+`Math.expm1` required). GitHub Actions runs Python and Node regression
+tests on Python 3.10–3.12. The browser UI uses JavaScript rather than
+Pyodide because its equations do not require a Python runtime.
 
-```bash
-pytest -v
-```
+## Clinical sources
 
-Execute high-throughput batch simulation benchmarks:
+- [KDOQI Clinical Practice Guideline for Hemodialysis Adequacy, 2015 Update](https://www.sciencedirect.com/science/article/pii/S0272638615010197)
+- [Leypoldt et al., calculation of weekly standard Kt/V, 2003](https://doi.org/10.1046/j.1492-7535.2003.01216.x)
+- [Depner and Daugirdas, two-point normalized protein catabolic rate equations, 1996](https://pubmed.ncbi.nlm.nih.gov/8738814/)
+- [Daugirdas and colleagues, simplified eKt/V rate equation](https://pubmed.ncbi.nlm.nih.gov/8591121/)
 
-```bash
-python simulator.py --tasks 1000 --concurrency 8
-```
+## License
 
----
-
-## 🐳 Container Deployment
-
-```bash
-docker build -t dialysis-adequacy-ktv-agent .
-docker run -p 8000:8000 dialysis-adequacy-ktv-agent
-```
+MIT — see [LICENSE](LICENSE).
