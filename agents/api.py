@@ -31,7 +31,7 @@ def metrics():
     return {
         "dossiers_processed_total": len(supervisor.dossier_registry),
         "audit_blocks_total": len(AuditLogger.get_trail()),
-        "system_status": "NOMINAL_OPTIMAL"
+        "system_status": "AUDIT_VERIFIED" if AuditLogger.verify_integrity() else "AUDIT_INVALID"
     }
 
 
@@ -52,4 +52,4 @@ def api_chat(req: ChatRequest):
 
 @app.get("/api/audit/logs")
 def api_audit_logs():
-    return {"audit_trail": AuditLogger.get_trail(), "verified": AuditLogger.verify_integrity()}
+    return {"count": len(AuditLogger.get_trail()), "verified": AuditLogger.verify_integrity(), "note": "Raw audit metadata is not exposed on an unauthenticated route."}
