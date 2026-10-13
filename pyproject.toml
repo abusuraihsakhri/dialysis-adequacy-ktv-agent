@@ -20,7 +20,7 @@ dependencies = ["pydantic>=2,<3"]
 
 [project.optional-dependencies]
 server = ["fastapi>=0.100,<1", "uvicorn>=0.20,<1"]
-test = ["pytest>=8,<10"]
+test = ["pytest>=8,<10", "httpx>=0.27,<1"]
 
 [project.scripts]
 dialysis-adequacy-ktv-engine = "dialysis_adequacy_ktv_agent.cli:main"
