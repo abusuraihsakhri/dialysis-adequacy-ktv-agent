@@ -4,24 +4,34 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dialysis-adequacy-ktv-engine"
-version = "2.0.0"
-description = "KtV-Sentinel: Hemodialysis Single-Pool & Equilibrated Kt/V Adequacy Engine"
+version = "2.0.1"
+description = "Dialysis urea clearance estimates and an optional audit service"
 readme = "README.md"
-authors = [{ name = "Dr. Abu Suraih Sakhri", email = "abusuraih@example.com" }]
+authors = [{ name = "Dr. Abu Suraih Sakhri" }]
 license = { text = "MIT" }
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Topic :: Scientific/Engineering :: Medical Science Apps.",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Medical Science Apps",
 ]
 requires-python = ">=3.9"
-dependencies = []
+dependencies = ["pydantic>=2,<3"]
+
+[project.optional-dependencies]
+server = ["fastapi>=0.100,<1", "uvicorn>=0.20,<1"]
+test = ["pytest>=8,<10"]
 
 [project.scripts]
 dialysis-adequacy-ktv-engine = "dialysis_adequacy_ktv_agent.cli:main"
+ktv-sentinel = "ktv_sentinel:main"
 
 [project.urls]
-Homepage = "https://github.com/abusuraihsakhri/dialysis-adequacy-ktv-engine"
-Repository = "https://github.com/abusuraihsakhri/dialysis-adequacy-ktv-engine.git"
+Homepage = "https://github.com/abusuraihsakhri/dialysis-adequacy-ktv-agent"
+Repository = "https://github.com/abusuraihsakhri/dialysis-adequacy-ktv-agent"
+
+[tool.setuptools]
+py-modules = ["ktv_sentinel", "enrichment", "simulator"]
+
+[tool.setuptools.packages.find]
+include = ["agents*", "dialysis_adequacy_ktv_agent*"]
