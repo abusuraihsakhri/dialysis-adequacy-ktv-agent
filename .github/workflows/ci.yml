@@ -33,5 +33,17 @@ jobs:
         run: |
           python cli.py full --pre-bun 60 --post-bun 15 --time 4 --uf-l 2.5 --weight 75
           dialysis-adequacy-ktv-engine audit --case-id TEST-001 --primary 10 --secondary 4 --status NORMAL
+      - name: Docker build and HTTP smoke test
+        if: matrix.python-version == '3.12'
+        run: |
+          docker build -t ktv-smoke .
+          docker run -d --rm --name ktv-smoke -p 127.0.0.1:18080:8000 -e AUDIT_SECRET_KEY=ci-smoke-test-only ktv-smoke
+          trap 'docker stop ktv-smoke >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 15); do
+            if curl -fsS http://127.0.0.1:18080/health; then exit 0; fi
+            sleep 2
+          done
+          docker logs ktv-smoke
+          exit 1
       - name: Audit-chain verification
         run: python -c "from agents.base import AuditLogger; assert AuditLogger.verify_integrity()"
